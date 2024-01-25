@@ -1,0 +1,222 @@
+---
+title: "Potential lunar-modulated rhythm of magnetic sensing in the Oyster toadfish"
+output: html_document
+date: "2024-01-25"
+---
+
+################################################################################
+Load libraries
+```{r}
+library(RColorBrewer)
+library(circular)
+library(ggplot2)
+library(ggpubr)
+```
+
+
+################################################################################
+Color
+```{r}
+# Hexadecimal color specification 
+brewer.pal(n = 8, name = "BuGn")
+# "#F7FCFD" "#E5F5F9" "#CCECE6" "#99D8C9" "#66C2A4" "#41AE76" "#238B45" "#005824"
+display.brewer.pal(7,"BrBG")
+```
+
+
+
+################################################################################
+Lunar Day ~ Den Choice Plotting and Statistical Analysis
+Total n= 98
+Control n= 51
+Magnet n= 47
+
+```{r}
+control_lunar_data <- read.csv("2024_01_25 Control Lunar Day Data.csv", sep = ",", header = TRUE)
+control_lunar_data
+control_choice <- lunar_data$Control_Lunar_Day_Degree
+control_choice_circ <- circular(control_choice, units = "degrees", template = "geographics", modulo = "2pi") 
+mean.circular(control_choice_circ)
+#354.5702
+rayleigh.test(control_choice_circ)
+#Test Statistic:  0.1681  
+#P-value:  0.2366 
+```
+
+
+```{r}
+plot.circular(control_choice_circ, col= "#D8B365", stack = TRUE, bins = 360, sep = .07, shrink = 1.5)
+```
+
+
+```{r}
+magnet_lunar_data <- read.csv("2024_01_25 Magnet Lunar Day Data.csv", sep = ",", header = TRUE)
+magnet_lunar_data
+magnet_choice <- magnet_lunar_data$Magnet_Lunar_Day_Degree
+magnet_choice_circ <- circular(magnet_choice, units = "degrees", template = "geographics", modulo = "2pi") 
+mean.circular(magnet_choice_circ)
+#182.0084
+rayleigh.test(magnet_choice_circ)
+#Test Statistic:  0.2152  
+#P-value:  0.1133
+```
+
+```{r}
+plot.circular(magnet_choice_circ, col= "#5AB4AC", stack = TRUE, bins = 360, sep = .07, shrink = 1.5)
+```
+
+Statistical testing
+```{r}
+watson.two.test(control_choice_circ, magnet_choice_circ)
+#Test Statistic: 0.1912
+#0.01 < P-value < 0.05  
+
+watson.wheeler.test(list(control_choice_circ, magnet_choice_circ))
+#W = 6.3286, df = 2, p-value = 0.04224
+```
+
+
+################################################################################
+Moon Illumination and Fish Length ~ Den Choice Logistic Regression Model
+
+```{r}
+regression_data <- read.csv("2024_01_25 Regression Data.csv", sep = ",", header = TRUE)
+moon_model <- glm(regression_data$Morning_DV ~ regression_data$Moon_Illumination, family = binomial)
+summary(moon_model)
+#                               Estimate Std. Error z value Pr(>|z|)  
+#(Intercept)                        -0.770054   0.356953  -2.157   0.0310 *
+#regression_data$Moon_Illumination  0.014111   0.005903   2.390   0.0168 *
+
+#calculating CI
+confint(moon_model)
+#                                     2.5 %      97.5 %
+#(Intercept)                        -1.495487620 -0.08627778
+#regression_data$Moon_Illumination  0.002767395  0.02602998
+
+#calculating odds ratio
+moon_model$coefficients
+exp(moon_model$coefficients)
+#(Intercept) regression_data$Moon_Illumination 
+#0.462988                          1.014211
+
+```
+
+
+```{r}
+regression_plot <- ggplot(regression_data, aes(x=Moon_Illumination, y = Morning_DV)) + geom_point(alpha=.4, size=1.8, position=position_jitter(width=.04,height=.04)) + stat_smooth(method = "glm", color = "black", se=TRUE, method.args = list(family="binomial")) + theme_classic() + labs (x="Moon Illumination (%)", y="Probability of Choosing Magnet Den") + theme(axis.text = element_text(size=12), axis.title = element_text(size=14))
+regression_plot
+ggsave("lunarregression.pdf", width=6, height=4, dpi=300)
+```
+
+```{r}
+length_model <- glm(regression_data$Morning_DV ~ regression_data$Length, family = binomial)
+summary(length_model)
+#                       Estimate Std. Error z value Pr(>|z|)
+#(Intercept)             1.31324    1.47604   0.890    0.374
+#regression_data$Length -0.05198    0.05449  -0.954    0.340
+```
+
+
+################################################################################
+Den Choice in the Morning Plotting and Statistical Analysis
+
+```{r}
+choice_data <- read.csv("2024_01_25 Den Choice.csv", sep = ",", header = TRUE)
+morning_choice_barplot <- ggplot(choice_data, aes(x= Lunar_Phase, y=Lunar_Phase_Morning_Dec, fill=Lunar_Phase_Den)) + geom_col(position = 'dodge') + theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) + theme_classic() +
+  labs (x="Lunar Phase", y="Number of Fish")  + scale_x_discrete(limits=c("New Moon","Full Moon")) + ylim(0,20) + scale_fill_manual(values=c("#D8B365", "#5AB4AC", "#5AB4AC"))
+morning_choice_barplot
+ggsave("morning_choice.pdf", width=6, height=4, dpi=300)
+```
+Full Moon (n=25): control n=8, magnet n=17
+```{r}
+binom.test(8, 25, p = 0.5)
+#number of successes = 8, number of trials = 25, p-value = 0.1078
+```
+
+New Moon (n=27): control n=20, magnet n=7
+```{r}
+binom.test(20, 27, p = 0.5)
+#number of successes = 20, number of trials = 27, p-value = 0.01916
+```
+
+Control Choices (N=28): new moon (n=20) and full moon (n=8)
+```{r}
+binom.test(20, 28, p = 0.5)
+#number of successes = 20, number of trials = 28, p-value = 0.0357
+```
+
+Magnet Choices (N=24): new moon (n=7) and full moon (n=17)
+```{r}
+binom.test(17, 24, p = 0.5)
+#number of successes = 17, number of trials = 24, p-value = 0.06391
+```
+
+################################################################################
+Den Preference Plotting and Statistical Analysis
+
+```{r}
+nm_pref_data <- read.csv("2024_01_25 New Moon Den Preference.csv", sep = ",", header = TRUE)
+nm_boxplot <- ggplot(nm_pref_data, aes(x= NM_Den, y = NM_Perc_Den, fill=NM_Den)) +
+  geom_boxplot() + theme_classic() +
+  labs (x="Den", y="Time in Den at New Moon (%)") +
+  scale_fill_manual(values=c("#D8B365", "#5AB4AC")) + theme(legend.position = "none") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14))+ ylim(0,100) +scale_x_discrete(limits=c("Control", "Magnet"))
+nm_boxplot
+ggsave("newmoon.pdf", width=3, height=4, dpi=300)
+```
+
+```{r}
+compare_means(NM_Perc_Den ~ NM_Den, data = nm_pref_data, paired = TRUE)
+#NM_Perc_Den	Control	Magnet	0.7275585	0.73	0.73	ns	Wilcoxon
+```
+
+
+```{r}
+fm_pref_data <- read.csv("2024_01_25 Full Moon Den Preference.csv", sep = ",", header = TRUE)
+fm_boxplot <- ggplot(fm_pref_data, aes(x= FM_Den, y = FM_Perc_Den, fill=FM_Den)) +
+  geom_boxplot() + theme_classic() +
+  labs (x="Den", y="Time in Den at Full Moon (%)") +
+  scale_fill_manual(values=c("#D8B365", "#5AB4AC")) + theme(legend.position = "none") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14))+ ylim(0,100) +scale_x_discrete(limits=c("Control", "Magnet")) 
+fm_boxplot
+ggsave("fullmoon.pdf", width=3, height=4, dpi=300)
+```
+
+
+```{r}
+compare_means(FM_Perc_Den ~ FM_Den, data = fm_pref_data, paired = TRUE)
+#FM_Perc_Den	Control	Magnet	0.03933871	0.039	0.039	*	Wilcoxon
+```
+
+################################################################################
+Total Time in a Den Plotting and Statistical Analysis
+
+```{r}
+total_den_data <- read.csv("2024_01_25 Total Time in Den.csv", sep = ",", header = TRUE)
+den_boxplot <- ggplot(total_den_data, aes(x= Moon_Cycle, y = Perc_In_Any_Den, fill=Moon_Cycle)) +
+  geom_boxplot() + theme_classic() +
+  labs (x="Lunar Phase", y="Total Time in a Den (%)") + scale_fill_manual(values=c("#c7eae5", "#f6e8c3")) + theme(legend.position = "none") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14))+ ylim(0,100) +scale_x_discrete(limits=c("New Moon", "Full Moon"))
+den_boxplot
+ggsave("denboxplot.pdf", width=6, height=4, dpi=300)
+```
+
+
+```{r}
+compare_means(Perc_In_Any_Den ~ Moon_Cycle, data = total_den_data, paired = FALSE)
+```
+
+################################################################################
+Magnet Field Strength vs Position in the Tank PLotting
+
+```{r}
+magnet_data <- read.csv("2024_01_12 Magnet Strength.csv", sep = ",", header = TRUE)
+magnet_data
+magnet_tank <- ggplot(magnet_data, aes(x= Position, y = Corrected_Field_Strength)) +
+  geom_line() + geom_point()+ theme_classic() +
+  labs (x="Position in Tank (cm)", y="Field Strength (μT)")+ theme(axis.text = element_text(size=12), axis.title = element_text(size=14))+ ylim(0,321) + xlim(0,110) + scale_x_continuous(breaks = seq(0, 110, 10)) + scale_y_continuous(breaks = seq(0, 321, 50))
+magnet_tank
+
+ggsave("magnettank.pdf", width=6, height=4, dpi=300)
+```
+
